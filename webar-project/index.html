@@ -2,10 +2,10 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebAR Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シンプルWebAR</title>
     <!-- A-Frame と AR.js の読み込み -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
         body {
@@ -15,26 +15,24 @@
             position: fixed;
             width: 100%;
             height: 100%;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            user-select: none;
         }
         .arjs-loader {
-            position: fixed;
+            height: 100%;
+            width: 100%;
+            position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
             display: flex;
             justify-content: center;
             align-items: center;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 9999;
-            color: white;
-            font-family: Arial, sans-serif;
-            font-size: 16px;
+        }
+        .arjs-loader div {
             text-align: center;
-            padding: 20px;
+            font-size: 1.25em;
+            color: white;
+            font-family: sans-serif;
         }
         #status-message {
             position: fixed;
@@ -43,106 +41,46 @@
             width: 100%;
             text-align: center;
             padding: 10px;
-            font-family: Arial, sans-serif;
+            font-family: sans-serif;
             font-weight: bold;
             z-index: 999;
-            transition: all 0.3s ease;
-            font-size: 16px;
-        }
-        .searching {
             background-color: rgba(255, 165, 0, 0.7);
             color: black;
-        }
-        .found {
-            background-color: rgba(0, 128, 0, 0.7);
-            color: white;
-        }
-        #scan-animation {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 200px;
-            height: 200px;
-            border: 4px dashed orange;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-            z-index: 998;
-            pointer-events: none;
-            opacity: 0.7;
-            display: block;
-        }
-        @keyframes pulse {
-            0% {
-                transform: translate(-50%, -50%) scale(0.8);
-                opacity: 0.7;
-            }
-            50% {
-                transform: translate(-50%, -50%) scale(1);
-                opacity: 0.5;
-            }
-            100% {
-                transform: translate(-50%, -50%) scale(0.8);
-                opacity: 0.7;
-            }
-        }
-        #fullscreen-button {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 999;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        /* AR.jsのデフォルトUIを非表示 */
-        .a-enter-vr {
-            display: none !important;
         }
     </style>
 </head>
 <body>
     <!-- ローディング表示 -->
     <div class="arjs-loader">
-        カメラへのアクセスを許可してください。<br>WebARを準備中...
+        <div>カメラへのアクセスを許可してください<br>読み込み中...</div>
     </div>
     
     <!-- マーカー認識状態の表示 -->
-    <div id="status-message" class="searching">マーカーを探しています...</div>
-    <div id="scan-animation"></div>
-    
-    <!-- フルスクリーンボタン -->
-    <button id="fullscreen-button">⛶</button>
+    <div id="status-message">マーカーを探しています...</div>
     
     <!-- A-Frame シーン -->
     <a-scene
         embedded
-        arjs="sourceType: webcam; debugUIEnabled: false;"
-        renderer="logarithmicDepthBuffer: true;"
+        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true; precision: mediump;"
         vr-mode-ui="enabled: false">
         
-        <!-- マーカーの設定 -->
-        <a-marker 
-            type="pattern" 
-            url="marker/pattern-marker.patt"
-            emitevents="true"
-            id="animated-marker">
-            <!-- 3Dモデルの配置 -->
-            <a-entity
-                position="0 0 0"
-                rotation="-90 0 0"
-                scale="0.05 0.05 0.05"
-                gltf-model="models/model.glb">
-            </a-entity>
-        </a-marker>
+    <!-- マーカーの設定 -->
+    <a-marker 
+        type="pattern" 
+        url="marker/pattern-marker.patt"
+        id="marker"
+        raycaster="objects: .clickable"
+        emitevents="true">
+        <!-- 3Dモデルの配置 -->
+        <a-entity
+            position="0 0 0"
+            rotation="-90 0 0"
+            scale="0.05 0.05 0.05"
+            gltf-model="models/model.glb"
+            class="clickable">
+        </a-entity>
+    </a-marker>        
         
         <!-- カメラ -->
         <a-entity camera></a-entity>
@@ -151,57 +89,8 @@
     <script>
         // 要素の取得
         const scene = document.querySelector('a-scene');
-        const marker = document.querySelector('#animated-marker');
+        const marker = document.querySelector('#marker');
         const statusMessage = document.getElementById('status-message');
-        const scanAnimation = document.getElementById('scan-animation');
-        const fullscreenButton = document.getElementById('fullscreen-button');
-        let markerVisible = false;
-        let lastMarkerDetectionTime = 0;
-        const detectionThreshold = 300; // ミリ秒単位のしきい値
-        
-        // フルスクリーンの切り替え
-        fullscreenButton.addEventListener('click', function() {
-            if (!document.fullscreenElement) {
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen();
-                } else if (document.documentElement.mozRequestFullScreen) { // Firefox
-                    document.documentElement.mozRequestFullScreen();
-                } else if (document.documentElement.webkitRequestFullscreen) { // Chrome, Safari, Opera
-                    document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) { // IE/Edge
-                    document.documentElement.msRequestFullscreen();
-                }
-                fullscreenButton.textContent = '✕';
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-                fullscreenButton.textContent = '⛶';
-            }
-        });
-        
-        // フルスクリーン状態変更時のイベントリスナー
-        document.addEventListener('fullscreenchange', updateFullscreenButtonText);
-        document.addEventListener('webkitfullscreenchange', updateFullscreenButtonText);
-        document.addEventListener('mozfullscreenchange', updateFullscreenButtonText);
-        document.addEventListener('MSFullscreenChange', updateFullscreenButtonText);
-        
-        function updateFullscreenButtonText() {
-            if (document.fullscreenElement || 
-                document.webkitFullscreenElement || 
-                document.mozFullScreenElement || 
-                document.msFullscreenElement) {
-                fullscreenButton.textContent = '✕';
-            } else {
-                fullscreenButton.textContent = '⛶';
-            }
-        }
         
         // シーンのロード完了時
         scene.addEventListener('loaded', function () {
@@ -211,86 +100,24 @@
         
         // マーカーが検出されたとき
         marker.addEventListener('markerFound', function() {
-            const now = Date.now();
-            // 短時間での連続検出を防ぐ
-            if (now - lastMarkerDetectionTime > detectionThreshold) {
-                console.log('マーカーを検出しました！');
-                statusMessage.textContent = 'マーカーを検出しました！';
-                statusMessage.className = 'found';
-                scanAnimation.style.display = 'none';
-                markerVisible = true;
-                
-                // マーカー検出時に振動フィードバック（対応デバイスのみ）
-                if (navigator.vibrate) {
-                    navigator.vibrate(200);
-                }
+            console.log('マーカーを検出しました！');
+            statusMessage.textContent = 'マーカーを検出しました！';
+            statusMessage.style.backgroundColor = 'rgba(0, 128, 0, 0.7)';
+            statusMessage.style.color = 'white';
+            
+            // 振動フィードバック
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
             }
-            lastMarkerDetectionTime = now;
         });
         
         // マーカーが見失われたとき
         marker.addEventListener('markerLost', function() {
-            const now = Date.now();
-            // 短時間での連続検出を防ぐ
-            if (now - lastMarkerDetectionTime > detectionThreshold) {
-                console.log('マーカーを見失いました');
-                statusMessage.textContent = 'マーカーを探しています...';
-                statusMessage.className = 'searching';
-                scanAnimation.style.display = 'block';
-                markerVisible = false;
-            }
-            lastMarkerDetectionTime = now;
+            console.log('マーカーを見失いました');
+            statusMessage.textContent = 'マーカーを探しています...';
+            statusMessage.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
+            statusMessage.style.color = 'black';
         });
-        
-        // マーカー認識状態の監視（バックアップ）
-        setInterval(function() {
-            const markerDiv = document.querySelector('a-marker');
-            if (markerDiv) {
-                const isVisible = markerDiv.object3D.visible;
-                if (isVisible !== markerVisible) {
-                    markerVisible = isVisible;
-                    if (isVisible) {
-                        statusMessage.textContent = 'マーカーを検出しました！';
-                        statusMessage.className = 'found';
-                        scanAnimation.style.display = 'none';
-                    } else {
-                        statusMessage.textContent = 'マーカーを探しています...';
-                        statusMessage.className = 'searching';
-                        scanAnimation.style.display = 'block';
-                    }
-                }
-            }
-        }, 500);
-        
-        // スクリーンロックを防止（可能な場合）
-        function preventSleep() {
-            if (navigator.wakeLock) {
-                navigator.wakeLock.request('screen')
-                    .then(lock => {
-                        console.log('スクリーンロックを防止しました');
-                    })
-                    .catch(err => {
-                        console.log('スクリーンロック防止に失敗しました:', err);
-                    });
-            }
-        }
-        
-        // ページがロードされたらスリープ防止を試みる
-        if (document.readyState === 'complete') {
-            preventSleep();
-        } else {
-            window.addEventListener('load', preventSleep);
-        }
-        
-        // ダブルタップによるズームを防止
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function(e) {
-            const now = Date.now();
-            if (now - lastTouchEnd <= 300) {
-                e.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
     </script>
 </body>
 </html>
