@@ -2,120 +2,278 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>シンプルWebAR</title>
-    <!-- A-Frame と AR.js の読み込み -->
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WebAR マーカー認識</title>
     <style>
         body {
             margin: 0;
-            padding: 0;
             overflow: hidden;
             position: fixed;
             width: 100%;
             height: 100%;
         }
         .arjs-loader {
-            height: 100%;
-            width: 100%;
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
-            background-color: rgba(0, 0, 0, 0.8);
-            z-index: 9999;
+            width: 100%;
+            height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
-        }
-        .arjs-loader div {
-            text-align: center;
-            font-size: 1.25em;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
             color: white;
-            font-family: sans-serif;
         }
-        #status-message {
+        .message {
             position: fixed;
-            bottom: 20px;
-            left: 0;
+            top: 10px;
             width: 100%;
             text-align: center;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px;
+            z-index: 20;
+        }
+        /* マーカー認識状態表示用のスタイル */
+        #marker-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
             padding: 10px;
-            font-family: sans-serif;
-            font-weight: bold;
-            z-index: 999;
-            background-color: rgba(255, 165, 0, 0.7);
-            color: black;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 5px;
+            z-index: 100;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: red;
+        }
+        .status-active {
+            background-color: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        /* デバッグパネル */
+        #debug-panel {
+            position: fixed;
+            top: 50px;
+            right: 10px;
+            width: 200px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+            font-family: monospace;
+            font-size: 12px;
+            display: none;
+        }
+        .debug-value {
+            margin-bottom: 5px;
         }
     </style>
 </head>
 <body>
-    <!-- ローディング表示 -->
     <div class="arjs-loader">
-        <div>カメラへのアクセスを許可してください<br>読み込み中...</div>
+        <div>カメラへのアクセスを許可してください</div>
+    </div>
+    <div id="scanning-message" class="message" style="display:none;">マーカーを探しています...</div>
+    
+    <!-- マーカー認識状態表示 -->
+    <div id="marker-status">
+        <div class="status-indicator" id="status-light"></div>
+        <span id="status-text">マーカー未検出</span>
+        <div>
+            <button id="toggle-debug">デバッグ情報表示</button>
+        </div>
     </div>
     
-    <!-- マーカー認識状態の表示 -->
-    <div id="status-message">マーカーを探しています...</div>
+    <!-- デバッグ情報パネル -->
+    <div id="debug-panel">
+        <h3>マーカー検出情報</h3>
+        <div class="debug-value">検出時間: <span id="detection-time">-</span></div>
+        <div class="debug-value">信頼度: <span id="confidence-value">-</span></div>
+        <div class="debug-value">位置: <span id="position-value">-</span></div>
+        <div class="debug-value">回転: <span id="rotation-value">-</span></div>
+        <div class="debug-value">検出回数: <span id="detection-count">0</span></div>
+        <div class="debug-value">FPS: <span id="fps-value">-</span></div>
+    </div>
     
-    <!-- A-Frame シーン -->
-    <a-scene
-        embedded
-        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
-        renderer="logarithmicDepthBuffer: true; precision: mediump;"
-        vr-mode-ui="enabled: false">
+    <a-scene embedded vr-mode-ui="enabled: false" ar-settings arjs="trackingMethod: best; debugUIEnabled: false;">
+        <a-assets>
+            <!-- 必要なアセットをここに読み込む -->
+        </a-assets>
         
-        <!-- マーカーの設定 -->
-        <a-marker 
-            preset="hiro"
-            id="marker"
-            raycaster="objects: .clickable"
-            emitevents="true">
-            <!-- 3Dモデルの配置 -->
-            <a-box 
-                position="0 0.5 0" 
-                material="color: red;"
-                scale="1 1 1"
-                class="clickable"
-                animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear;">
-            </a-box>
+        <!-- カメラ設定の最適化 -->
+        <a-marker id="animated-marker" type="pattern" url="path/to/OyaOyaOya4/webar-demo/webar-project/marker/pattern-marker.patt" emitevents="true" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5" debug-marker>
+            <!-- マーカー上に表示するコンテンツ -->
+            <a-box position="0 0.5 0" material="color: red;"></a-box>
         </a-marker>
         
-        <!-- カメラ -->
+        <!-- バックアップとしてバーコードマーカーも追加 -->
+        <a-marker id="barcode-marker" type="barcode" value="5">
+            <a-box position="0 0.5 0" material="color: blue;"></a-box>
+        </a-marker>
+        
         <a-entity camera></a-entity>
     </a-scene>
     
     <script>
-        // 要素の取得
-        const scene = document.querySelector('a-scene');
-        const marker = document.querySelector('#marker');
-        const statusMessage = document.getElementById('status-message');
+        // グローバル変数
+        let detectionCount = 0;
+        let lastDetectionTime = null;
+        let markerVisible = false;
+        let debugEnabled = false;
+        let lastFrameTime = performance.now();
+        let frameCount = 0;
+        let currentFps = 0;
         
-        // シーンのロード完了時
-        scene.addEventListener('loaded', function () {
-            document.querySelector('.arjs-loader').style.display = 'none';
-            console.log('ARシステム準備完了');
-        });
-        
-        // マーカーが検出されたとき
-        marker.addEventListener('markerFound', function() {
-            console.log('マーカーを検出しました！');
-            statusMessage.textContent = 'マーカーを検出しました！';
-            statusMessage.style.backgroundColor = 'rgba(0, 128, 0, 0.7)';
-            statusMessage.style.color = 'white';
-            
-            // 振動フィードバック
-            if (navigator.vibrate) {
-                navigator.vibrate(200);
+        // AR.jsの設定コンポーネント
+        AFRAME.registerComponent('ar-settings', {
+            init: function() {
+                // マーカー検出の信頼性閾値を下げる（デフォルトは0.5）
+                this.el.setAttribute('arjs', 'detectionMode: mono_and_matrix; matrixCodeType: 3x3; debugUIEnabled: false; sourceType: webcam; patternRatio: 0.65; canvasWidth: 640; canvasHeight: 480');
+                
+                // マーカー検出の感度を上げる
+                if (this.el.sceneEl.systems.arjs && this.el.sceneEl.systems.arjs.context) {
+                    this.el.sceneEl.systems.arjs.context.setAttribute('minConfidence', 0.3);
+                }
             }
         });
         
-        // マーカーが見失われたとき
-        marker.addEventListener('markerLost', function() {
-            console.log('マーカーを見失いました');
-            statusMessage.textContent = 'マーカーを探しています...';
-            statusMessage.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
-            statusMessage.style.color = 'black';
+        // マーカーデバッグコンポーネント
+        AFRAME.registerComponent('debug-marker', {
+            init: function() {
+                var marker = this.el;
+                console.log('マーカー初期化');
+                
+                // マーカー検出イベント
+                marker.addEventListener('markerFound', function() {
+                    markerVisible = true;
+                    detectionCount++;
+                    lastDetectionTime = new Date();
+                    
+                    // ステータス表示を更新
+                    updateMarkerStatus(true);
+                    
+                    // デバッグ情報を更新
+                    if (debugEnabled) {
+                        updateDebugInfo(marker);
+                    }
+                });
+                
+                // マーカー消失イベント
+                marker.addEventListener('markerLost', function() {
+                    markerVisible = false;
+                    updateMarkerStatus(false);
+                });
+                
+                // 定期的にデバッグ情報を更新
+                setInterval(function() {
+                    if (markerVisible && debugEnabled) {
+                        updateDebugInfo(marker);
+                    }
+                    
+                    // FPS計算
+                    const now = performance.now();
+                    frameCount++;
+                    
+                    if (now - lastFrameTime >= 1000) {
+                        currentFps = Math.round(frameCount * 1000 / (now - lastFrameTime));
+                        frameCount = 0;
+                        lastFrameTime = now;
+                        
+                        if (debugEnabled) {
+                            document.getElementById('fps-value').textContent = currentFps;
+                        }
+                    }
+                }, 100);
+            }
+        });
+        
+        // カメラ初期化イベント
+        window.addEventListener('camera-init', function() {
+            document.querySelector('.arjs-loader').style.display = 'none';
+            document.getElementById('scanning-message').style.display = 'block';
+        });
+        
+        // マーカーステータス表示の更新
+        function updateMarkerStatus(detected) {
+            const statusLight = document.getElementById('status-light');
+            const statusText = document.getElementById('status-text');
+            const scanningMessage = document.getElementById('scanning-message');
+            
+            if (detected) {
+                statusLight.classList.add('status-active');
+                statusText.textContent = 'マーカー検出中';
+                scanningMessage.textContent = 'マーカーを認識しました！';
+                scanningMessage.style.backgroundColor = 'rgba(0, 255, 0, 0.5)';
+            } else {
+                statusLight.classList.remove('status-active');
+                statusText.textContent = 'マーカー未検出';
+                scanningMessage.textContent = 'マーカーを探しています...';
+                scanningMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            }
+            
+            // 検出回数を更新
+            document.getElementById('detection-count').textContent = detectionCount;
+        }
+        
+        // デバッグ情報の更新
+        function updateDebugInfo(marker) {
+            // 検出時間
+            if (lastDetectionTime) {
+                document.getElementById('detection-time').textContent = 
+                    lastDetectionTime.toLocaleTimeString();
+            }
+            
+            // マーカーの位置と回転
+            if (marker.object3D) {
+                // 位置
+                const position = marker.object3D.position;
+                document.getElementById('position-value').textContent = 
+                    `X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}, Z: ${position.z.toFixed(2)}`;
+                
+                // 回転
+                const rotation = marker.object3D.rotation;
+                document.getElementById('rotation-value').textContent = 
+                    `X: ${(rotation.x * 180/Math.PI).toFixed(1)}°, Y: ${(rotation.y * 180/Math.PI).toFixed(1)}°, Z: ${(rotation.z * 180/Math.PI).toFixed(1)}°`;
+            }
+            
+            // 信頼度（AR.jsから取得できる場合）
+            if (marker.object3D.userData && marker.object3D.userData.confidence) {
+                document.getElementById('confidence-value').textContent = 
+                    marker.object3D.userData.confidence.toFixed(2);
+            } else {
+                document.getElementById('confidence-value').textContent = "N/A";
+            }
+        }
+        
+        // デバッグ情報表示切り替えボタン
+        document.getElementById('toggle-debug').addEventListener('click', function() {
+            debugEnabled = !debugEnabled;
+            document.getElementById('debug-panel').style.display = debugEnabled ? 'block' : 'none';
+            this.textContent = debugEnabled ? 'デバッグ情報非表示' : 'デバッグ情報表示';
+        });
+        
+        // バーコードマーカーのイベント
+        document.getElementById('barcode-marker').addEventListener('markerFound', function() {
+            markerVisible = true;
+            detectionCount++;
+            lastDetectionTime = new Date();
+            updateMarkerStatus(true);
+        });
+        
+        document.getElementById('barcode-marker').addEventListener('markerLost', function() {
+            markerVisible = false;
+            updateMarkerStatus(false);
         });
     </script>
 </body>
