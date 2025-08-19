@@ -3,74 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>カスタムマーカーWebAR</title>
+    <title>WebAR - マーカー認識型AR</title>
+    
     <!-- A-Frame と AR.js の読み込み -->
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <!-- カメラ初期化前に背面カメラを強制するスクリプト -->
-    <script>
-        // AR.jsが読み込まれる前に実行
-        window.addEventListener('DOMContentLoaded', function() {
-            // AR.jsのカメラ設定を上書き
-            window.addEventListener('arjs-video-initialized', function() {
-                // 既存のビデオストリームを停止
-                const video = document.querySelector('.a-canvas').parentNode.querySelector('video');
-                if (video && video.srcObject) {
-                    const tracks = video.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
-                }
-                
-                // 背面カメラで再初期化
-                navigator.mediaDevices.enumerateDevices()
-                    .then(function(devices) {
-                        // 利用可能なビデオデバイスを検索
-                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                        console.log('利用可能なカメラ:', videoDevices);
-                        
-                        // 背面カメラを探す (通常は最後のデバイスが背面カメラ)
-                        let constraints = {
-                            video: {
-                                facingMode: {exact: "environment"},
-                                width: {ideal: 1920},
-                                height: {ideal: 1080}
-                            }
-                        };
-                        
-                        // 特定のデバイスIDがある場合はそれを使用
-                        if (videoDevices.length > 1) {
-                            // 多くの場合、最後のデバイスが背面カメラ
-                            constraints.video.deviceId = {
-                                exact: videoDevices[videoDevices.length - 1].deviceId
-                            };
-                        }
-                        
-                        return navigator.mediaDevices.getUserMedia(constraints);
-                    })
-                    .then(function(stream) {
-                        console.log('背面カメラ起動成功:', stream);
-                        // ビデオ要素にストリームを設定
-                        const video = document.querySelector('.a-canvas').parentNode.querySelector('video');
-                        if (video) {
-                            video.srcObject = stream;
-                            video.play();
-                        }
-                    })
-                    .catch(function(err) {
-                        console.error('背面カメラ起動エラー:', err);
-                        // フォールバック: 一般的なカメラアクセス
-                        navigator.mediaDevices.getUserMedia({video: true})
-                            .then(function(stream) {
-                                console.log('一般カメラ起動成功');
-                                const video = document.querySelector('.a-canvas').parentNode.querySelector('video');
-                                if (video) {
-                                    video.srcObject = stream;
-                                    video.play();
-                                }
-                            });
-                    });
-            });
-        });
-    </script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    
     <style>
         body {
             margin: 0;
@@ -83,26 +21,12 @@
             user-select: none;
         }
         
-        /* AR.jsのキャンバスを全画面表示に強制 */
-        .a-canvas, .a-canvas.fullscreen {
-            width: 100% !important;
-            height: 100% !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 1 !important;
-        }
-        
-        /* AR.jsのコンテナも全画面に */
-        #arjsDebugUIContainer, .arjs-loader {
-            height: 100% !important;
-            width: 100% !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-        }
-        
         .arjs-loader {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
             background-color: rgba(0, 0, 0, 0.8);
             z-index: 9999;
             display: flex;
@@ -142,6 +66,19 @@
             padding: 10px;
             border-radius: 5px;
         }
+        
+        #github-link {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            text-decoration: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: sans-serif;
+        }
     </style>
 </head>
 <body>
@@ -156,18 +93,18 @@
     <!-- カメラ切り替えボタン -->
     <button id="camera-switch">カメラ切替</button>
     
+    <!-- GitHubリンク -->
+    <a id="github-link" href="https://github.com/あなたのユーザー名/あなたのリポジトリ名" target="_blank">GitHub</a>
+    
     <!-- A-Frame シーン -->
     <a-scene
         embedded
         arjs="sourceType: webcam; 
               debugUIEnabled: false; 
-              sourceWidth: 1920; 
-              sourceHeight: 1080; 
-              displayWidth: 1920; 
-              displayHeight: 1080;
+              detectionMode: mono_and_matrix; 
+              matrixCodeType: 3x3;
               trackingMethod: best;
-              facingMode: environment;
-              cameraParametersUrl: data/camera_para.dat;"
+              facingMode: environment;"
         renderer="logarithmicDepthBuffer: true; antialias: true; precision: mediump;"
         vr-mode-ui="enabled: false">
         
@@ -178,27 +115,26 @@
             id="custom-marker"
             emitevents="true"
             smooth="true"
-            smoothCount="10"
+            smoothCount="5"
             smoothTolerance="0.01"
-            smoothThreshold="5"
+            smoothThreshold="2"
             raycaster="objects: .clickable"
             cursor="fuse: false; rayOrigin: mouse;">
             
-            <!-- 3Dモデルの配置 - 直接表示するプリミティブを追加 -->
-            <a-box position="0 0.5 0" color="red" class="clickable" scale="1 1 1"></a-box>
-            
-            <!-- 3Dモデルの配置 - GLTFモデル -->
+            <!-- 3Dモデルの配置 -->
             <a-entity
+                id="model-entity"
                 position="0 0 0"
-                rotation="0 0 0"
+                rotation="-90 0 0"
                 scale="0.05 0.05 0.05"
                 gltf-model="models/model.glb"
-                class="clickable">
+                class="clickable"
+                animation="property: rotation; to: -90 360 0; loop: true; dur: 10000; easing: linear;">
             </a-entity>
         </a-marker>
         
-        <!-- カメラ - 背面カメラを指定 -->
-        <a-entity camera="active: true; facingMode: environment;" look-controls></a-entity>
+        <!-- カメラ -->
+        <a-entity camera></a-entity>
     </a-scene>
     
     <script>
@@ -206,7 +142,7 @@
         const scene = document.querySelector('a-scene');
         const marker = document.querySelector('#custom-marker');
         const statusMessage = document.getElementById('status-message');
-        const model = document.querySelector('[gltf-model]');
+        const modelEntity = document.getElementById('model-entity');
         const cameraSwitch = document.getElementById('camera-switch');
         
         // 利用可能なカメラデバイスを保存する変数
@@ -238,9 +174,7 @@
             // 新しいカメラでストリームを開始
             navigator.mediaDevices.getUserMedia({
                 video: {
-                    deviceId: {exact: videoDevices[currentCameraIndex].deviceId},
-                    width: {ideal: 1920},
-                    height: {ideal: 1080}
+                    deviceId: {exact: videoDevices[currentCameraIndex].deviceId}
                 }
             }).then(function(stream) {
                 console.log(`カメラ切替: ${currentCameraIndex} (${videoDevices[currentCameraIndex].label})`);
@@ -270,115 +204,48 @@
                 });
         }
         
-        // モデルのロード状態を確認
-        if (model) {
-            model.addEventListener('model-loaded', function() {
-                console.log('3Dモデルが正常に読み込まれました');
-            });
-            
-            model.addEventListener('model-error', function(e) {
-                console.error('3Dモデル読み込みエラー:', e);
-                // エラー時に赤いボックスを表示（モデルの代わり）
-                const errorBox = document.createElement('a-box');
-                errorBox.setAttribute('color', 'red');
-                errorBox.setAttribute('position', '0 0.5 0');
-                errorBox.setAttribute('scale', '0.5 0.5 0.5');
-                marker.appendChild(errorBox);
-            });
-        }
-        
-        // カメラ表示を全画面にするための追加処理
-        window.addEventListener('load', function() {
-            setTimeout(() => {
-                const canvas = document.querySelector('.a-canvas');
-                if (canvas) {
-                    canvas.style.width = '100%';
-                    canvas.style.height = '100%';
-                    canvas.style.objectFit = 'cover';
-                }
-                
-                // デバイス列挙を実行
-                enumerateDevices();
-                
-                // 背面カメラを強制的に使用（複数の方法を試す）
-                initializeBackCamera();
-            }, 1000);
-        });
-        
-        // 背面カメラ初期化の複数アプローチ
-        function initializeBackCamera() {
-            // 方法1: facingMode: "environment"
-            navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: {exact: "environment"},
-                    width: {ideal: 1920},
-                    height: {ideal: 1080}
-                }
-            }).then(function(stream) {
-                console.log('背面カメラ起動成功 (方法1)');
-                updateVideoStream(stream);
-            }).catch(function(err) {
-                console.warn('方法1失敗:', err);
-                
-                // 方法2: デバイスIDを使用（最後のカメラを試す）
-                navigator.mediaDevices.enumerateDevices()
-                    .then(function(devices) {
-                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                        if (videoDevices.length > 1) {
-                            return navigator.mediaDevices.getUserMedia({
-                                video: {
-                                    deviceId: {exact: videoDevices[videoDevices.length - 1].deviceId},
-                                    width: {ideal: 1920},
-                                    height: {ideal: 1080}
-                                }
-                            });
-                        }
-                        throw new Error('複数のカメラが見つかりません');
-                    })
-                    .then(function(stream) {
-                        console.log('背面カメラ起動成功 (方法2)');
-                        updateVideoStream(stream);
-                    })
-                    .catch(function(err) {
-                        console.warn('方法2失敗:', err);
-                        
-                        // 方法3: 一般的なビデオアクセス
-                        navigator.mediaDevices.getUserMedia({
-                            video: {
-                                width: {ideal: 1920},
-                                height: {ideal: 1080}
-                            }
-                        }).then(function(stream) {
-                            console.log('カメラ起動成功 (方法3)');
-                            updateVideoStream(stream);
-                        }).catch(function(err) {
-                            console.error('すべてのカメラ起動方法が失敗:', err);
-                            alert('カメラへのアクセスに失敗しました。ブラウザの設定を確認してください。');
-                        });
-                    });
-            });
-        }
-        
-        // ビデオストリームを更新
-        function updateVideoStream(stream) {
-            const video = document.querySelector('video');
-            if (video) {
-                // 既存のストリームを停止
-                if (video.srcObject) {
-                    const tracks = video.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
-                }
-                
-                // 新しいストリームを設定
-                video.srcObject = stream;
-                video.play();
-            }
-        }
-        
         // シーンのロード完了時
         scene.addEventListener('loaded', function () {
             document.querySelector('.arjs-loader').style.display = 'none';
             console.log('ARシステム準備完了');
+            
+            // デバイス列挙を実行
+            enumerateDevices();
+            
+            // 背面カメラを優先的に使用
+            preferBackCamera();
+        });
+        
+        // 背面カメラを優先的に使用する関数
+        function preferBackCamera() {
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: "environment" }
+                }
+            }).then(function(stream) {
+                console.log('背面カメラ起動成功');
+                const video = document.querySelector('video');
+                if (video) {
+                    video.srcObject = stream;
+                }
+            }).catch(function(err) {
+                console.error('背面カメラ起動エラー:', err);
+            });
+        }
+        
+        // モデルのロード状態を確認
+        modelEntity.addEventListener('model-loaded', function() {
+            console.log('3Dモデルが正常に読み込まれました');
+        });
+        
+        modelEntity.addEventListener('model-error', function(e) {
+            console.error('3Dモデル読み込みエラー:', e);
+            // エラー時にフォールバック表示
+            const errorBox = document.createElement('a-box');
+            errorBox.setAttribute('color', 'red');
+            errorBox.setAttribute('position', '0 0.5 0');
+            errorBox.setAttribute('scale', '0.5 0.5 0.5');
+            marker.appendChild(errorBox);
         });
         
         // マーカーが検出されたとき
@@ -392,6 +259,9 @@
             if (navigator.vibrate) {
                 navigator.vibrate(200);
             }
+            
+            // モデルを表示
+            modelEntity.setAttribute('visible', true);
         });
         
         // マーカーが見失われたとき
@@ -402,16 +272,36 @@
             statusMessage.style.color = 'black';
         });
         
-        // iOS Safariでの全画面表示対応
-        function iosFullscreenFix() {
-            if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                window.scrollTo(0, 0);
-                document.body.style.height = `${window.innerHeight}px`;
-            }
-        }
+        // モバイルデバイスの向きが変わったときに調整
+        window.addEventListener('orientationchange', function() {
+            setTimeout(function() {
+                const canvas = document.querySelector('.a-canvas');
+                if (canvas) {
+                    canvas.style.width = '100%';
+                    canvas.style.height = '100%';
+                }
+            }, 200);
+        });
         
-        window.addEventListener('resize', iosFullscreenFix);
-        iosFullscreenFix();
+        // タッチイベントでモデルとインタラクション
+        modelEntity.addEventListener('click', function() {
+            // モデルがクリックされたときの処理
+            console.log('モデルがクリックされました');
+            
+            // 例: モデルを回転させる
+            const currentRotation = modelEntity.getAttribute('rotation');
+            modelEntity.setAttribute('animation', {
+                property: 'rotation',
+                to: `${currentRotation.x} ${currentRotation.y + 360} ${currentRotation.z}`,
+                dur: 1000,
+                easing: 'easeOutQuad'
+            });
+            
+            // 振動フィードバック
+            if (navigator.vibrate) {
+                navigator.vibrate(100);
+            }
+        });
     </script>
 </body>
 </html>
