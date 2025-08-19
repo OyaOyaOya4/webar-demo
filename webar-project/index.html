@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>カスタムマーカーWebAR</title>
     <!-- A-Frame と AR.js の読み込み -->
-    <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
         body {
@@ -80,7 +80,14 @@
     <!-- A-Frame シーン -->
     <a-scene
         embedded
-        arjs="sourceType: webcam; debugUIEnabled: false; sourceWidth: 1080; sourceHeight: 1920; displayWidth: 1080; displayHeight: 1920;"
+        arjs="sourceType: webcam; 
+              debugUIEnabled: false; 
+              sourceWidth: 1080; 
+              sourceHeight: 1920; 
+              displayWidth: 1080; 
+              displayHeight: 1920;
+              trackingMethod: best;
+              facingMode: environment;"
         renderer="logarithmicDepthBuffer: true; antialias: true; precision: mediump;"
         vr-mode-ui="enabled: false">
         
@@ -93,18 +100,25 @@
             smooth="true"
             smoothCount="10"
             smoothTolerance="0.01"
-            smoothThreshold="5">
-            <!-- 3Dモデルの配置 -->
+            smoothThreshold="5"
+            raycaster="objects: .clickable"
+            cursor="fuse: false; rayOrigin: mouse;">
+            
+            <!-- 3Dモデルの配置 - 直接表示するプリミティブを追加 -->
+            <a-box position="0 0.5 0" color="red" class="clickable" scale="1 1 1"></a-box>
+            
+            <!-- 3Dモデルの配置 - GLTFモデル -->
             <a-entity
                 position="0 0 0"
-                rotation="0 0 0"
+                rotation="-90 0 0"
                 scale="0.05 0.05 0.05"
-                gltf-model="models/model.glb">
+                gltf-model="models/model.glb"
+                class="clickable">
             </a-entity>
         </a-marker>
         
-        <!-- カメラ -->
-        <a-entity camera="active: true" look-controls></a-entity>
+        <!-- カメラ - 背面カメラを指定 -->
+        <a-entity camera="active: true; facingMode: environment;" look-controls></a-entity>
     </a-scene>
     
     <script>
@@ -112,6 +126,24 @@
         const scene = document.querySelector('a-scene');
         const marker = document.querySelector('#custom-marker');
         const statusMessage = document.getElementById('status-message');
+        const model = document.querySelector('[gltf-model]');
+        
+        // モデルのロード状態を確認
+        if (model) {
+            model.addEventListener('model-loaded', function() {
+                console.log('3Dモデルが正常に読み込まれました');
+            });
+            
+            model.addEventListener('model-error', function(e) {
+                console.error('3Dモデル読み込みエラー:', e);
+                // エラー時に赤いボックスを表示（モデルの代わり）
+                const errorBox = document.createElement('a-box');
+                errorBox.setAttribute('color', 'red');
+                errorBox.setAttribute('position', '0 0.5 0');
+                errorBox.setAttribute('scale', '0.5 0.5 0.5');
+                marker.appendChild(errorBox);
+            });
+        }
         
         // カメラ表示を全画面にするための追加処理
         window.addEventListener('load', function() {
@@ -122,6 +154,26 @@
                     canvas.style.height = '100%';
                     canvas.style.objectFit = 'cover';
                 }
+                
+                // 背面カメラを強制的に使用
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: "environment" }
+                    }
+                }).then(function(stream) {
+                    console.log('背面カメラ起動成功');
+                }).catch(function(err) {
+                    console.error('背面カメラ起動エラー:', err);
+                    // 通常のカメラアクセスを試みる
+                    navigator.mediaDevices.getUserMedia({
+                        video: true
+                    }).then(function(stream) {
+                        console.log('カメラ起動成功（フォールバック）');
+                    }).catch(function(err) {
+                        console.error('カメラ起動完全失敗:', err);
+                        alert('カメラへのアクセスに失敗しました。ブラウザの設定を確認してください。');
+                    });
+                });
             }, 1000);
         });
         
@@ -154,7 +206,7 @@
         
         // モデル読み込みエラーの監視
         document.addEventListener('model-error', function(e) {
-            console.error('モデル読み込みエラー:', e.detail.src);
+            console.error('モデル読み込みエラー:', e.detail);
             statusMessage.textContent = 'モデル読み込みエラー';
             statusMessage.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
             statusMessage.style.color = 'white';
@@ -170,6 +222,10 @@
         
         window.addEventListener('resize', iosFullscreenFix);
         iosFullscreenFix();
+        
+        // デバッグ情報
+        console.log('AR.js設定:', document.querySelector('a-scene').getAttribute('arjs'));
+        console.log('カメラ設定:', document.querySelector('a-entity[camera]').getAttribute('camera'));
     </script>
 </body>
 </html>
