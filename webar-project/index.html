@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>シンプルWebAR</title>
+    <title>カスタムマーカーWebAR</title>
     <!-- A-Frame と AR.js の読み込み -->
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
         body {
@@ -61,24 +61,22 @@
     <!-- A-Frame シーン -->
     <a-scene
         embedded
-        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
-        renderer="logarithmicDepthBuffer: true; precision: mediump;"
+        arjs="sourceType: webcam; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
         vr-mode-ui="enabled: false">
         
-        <!-- マーカーの設定 -->
+        <!-- カスタムマーカーの設定 -->
         <a-marker 
-            preset="hiro"
-            id="marker"
-            raycaster="objects: .clickable"
-            emitevents="true">
+            type="pattern" 
+            url="marker/pattern-marker.patt" 
+            id="custom-marker">
             <!-- 3Dモデルの配置 -->
-            <a-box 
-                position="0 0.5 0" 
-                material="color: red;"
-                scale="1 1 1"
-                class="clickable"
-                animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear;">
-            </a-box>
+            <a-entity
+                position="0 0 0"
+                rotation="-90 0 0"
+                scale="0.05 0.05 0.05"
+                gltf-model="models/model.glb">
+            </a-entity>
         </a-marker>
         
         <!-- カメラ -->
@@ -88,7 +86,7 @@
     <script>
         // 要素の取得
         const scene = document.querySelector('a-scene');
-        const marker = document.querySelector('#marker');
+        const marker = document.querySelector('#custom-marker');
         const statusMessage = document.getElementById('status-message');
         
         // シーンのロード完了時
@@ -116,6 +114,14 @@
             statusMessage.textContent = 'マーカーを探しています...';
             statusMessage.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
             statusMessage.style.color = 'black';
+        });
+        
+        // モデル読み込みエラーの監視
+        document.addEventListener('model-error', function(e) {
+            console.error('モデル読み込みエラー:', e.detail.src);
+            statusMessage.textContent = 'モデル読み込みエラー';
+            statusMessage.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+            statusMessage.style.color = 'white';
         });
     </script>
 </body>
